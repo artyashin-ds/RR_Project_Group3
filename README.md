@@ -6,13 +6,11 @@ Artemiy Yashin, Lochinbek Ismatillaev, Yuliya Martyniuk, Aliaksandra Labko
 Masters of Data Science, 2nd year
 Group3
 
-## What this project does/ Motivation
+## What this project does / Planned approach
 Two or three sentences. Plain language.
 
-## Planned approach
 
-
-## Research question
+## Motivation / Research question
 
 
 ## Requirements
