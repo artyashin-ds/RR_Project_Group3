@@ -1,10 +1,9 @@
-# Project title
-Used Car Price Prediction
+# Used Car Price Prediction 
+
 
 ## Authors
-Artemiy Yashin, Lochinbek Ismatillaev, Yuliya Martyniuk, Aliaksandra Labko
-Masters of Data Science, 2nd year
-Group3
+Group 3: Artemiy Yashin, Lochinbek Ismatillaev, Yuliya Martyniuk, Aliaksandra Labko
+
 
 ## Data
 https://www.kaggle.com/datasets/taeefnajib/used-car-price-prediction-dataset
