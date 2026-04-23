@@ -18,7 +18,7 @@ This project aims to explore how different car attributes affect pricing and to 
 - Which features (e.g., mileage, age, fuel type, accident history) have the strongest impact on used car prices?
 - How do relationships between variables (e.g., mileage vs price, year vs depreciation) look when visualized?
 - Can machine learning models reliably predict car prices based on available features?
-- Which model performs best for this regression task?
+- Which model performs best for this regression task??
 
 ## Planned approach
 - Perform exploratory data analysis (EDA) with clear visualizations  
