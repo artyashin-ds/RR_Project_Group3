@@ -9,13 +9,12 @@ warnings.filterwarnings("ignore")
 import os
 
 
-# get script location
-script_dir = os.path.dirname(os.path.abspath(__file__))
 
+# get working directory
 print("WORKING DIR:", os.getcwd())
 
 # Loading data
-df_cars = pd.read_csv('../data/used_cars.csv')
+df_cars = pd.read_csv('data/used_cars.csv')
 
 #Checking basic info about the data
 df_cars.info()
