@@ -1,0 +1,181 @@
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt 
+import seaborn as sns
+import matplotlib.ticker as ticker
+import regex as re
+
+# Load the dataset
+df_cars = pd.read_csv(f'../data/used_cars.csv')
+
+# cleaning the integer column by removing uncessary signs as mi, ., $ and spaces
+df_cars['milage'] = df_cars['milage'].astype(str).str.replace("mi.","")
+df_cars['milage'] = df_cars['milage'].str.replace(",","").astype(int)
+df_cars['price'] = df_cars['price'].str.replace("$","")
+df_cars['price'] = df_cars['price'].str.replace(",","").astype(int)
+
+# cleaning the fuel type column by replacing the nan values with electric and not supported with hydrogen and plug in hybrid with hybrid and E85 flex fuel with flex fuel
+df_cars['fuel_type'] = df_cars['fuel_type'].astype(str).replace('nan' ,'Electric')
+df_cars['fuel_type'] = df_cars['fuel_type'].astype(str).replace('not supported', 'Hydrogen')
+df_cars['fuel_type'] = df_cars['fuel_type'].astype(str).replace('Plug-In Hybrid', 'Hybrid')
+df_cars['fuel_type'] = df_cars['fuel_type'].astype(str).replace('E85 Flex Fuel', 'Flex_Fuel')
+
+# checking the value counts of the fuel type column to see if the cleaning process was successful
+df_cars['fuel_type'].value_counts(dropna=False).reset_index()
+
+# extraction of engine size
+def extract_engine_size(engine_str):
+    if pd.isna(engine_str):
+        return None    
+    engine_str = str(engine_str).lower()
+    
+    # Skip electric motors - they dont have engine size in liters
+    if 'electric' in engine_str:
+        return 'Electric'      
+    # Look for patterns like:
+    # "3.7L", "2.0L" (with decimal and L)
+    # "3L", "2L" (without decimal and L)  
+    # "3.5 Liter", "2.4 Liter" (with Liter)
+    pattern = r'(\d+\.\d+)\s*(?:l|liter)|(\d+)\s*(?:l|liter)'
+    matches = re.findall(pattern, engine_str)
+    
+    if matches:
+        for match in matches:
+            if match[0]:  
+                return float(match[0])
+            elif match[1]:  
+                return float(match[1])
+    
+    return None
+
+
+def extract_horsepower(engine_str):
+    if pd.isna(engine_str):
+        return None
+    # Look for patterns like "300.0HP", "292.0HP", "120HP"
+    pattern = r'(\d+\.\d+)HP|(\d+)HP'
+    matches = re.findall(pattern, str(engine_str))
+    if matches:
+        for match in matches:
+            for group in match:
+                if group:
+                    return float(group)
+    return None
+
+# Apply the extraction functions to create new columns for engine size and horsepower
+df_cars['engine_liters'] = df_cars['engine'].apply(extract_engine_size)
+df_cars['horsepower'] = df_cars['engine'].apply(extract_horsepower)
+
+
+def get_transmission_type(trans_str):
+    if pd.isna(trans_str) or trans_str in ['–', '2', 'SCHEDULED FOR OR IN PRODUCTION']:
+        return 'Unknown'
+    
+    trans_str = str(trans_str).upper()
+    
+    if any(x in trans_str for x in ['CVT', 'VARIABLE']):
+        return 'CVT'
+    elif any(x in trans_str for x in ['MANUAL', 'M/T', 'MT']):
+        return 'Manual'
+    elif any(x in trans_str for x in ['DUAL-CLUTCH', 'DCT', 'PDK']):
+        return 'Dual-Clutch'
+    elif any(x in trans_str for x in ['AUTOMATIC', 'A/T', 'AT']):
+        return 'Automatic'
+    elif 'F' in trans_str:  # Common abbreviation for Automatic
+        return 'Automatic'
+    else:
+        return 'Other'
+
+def extract_gears(trans_str):
+    if pd.isna(trans_str):
+        return None
+    
+    trans_str = str(trans_str)
+    
+    # Look for patterns like "6-Speed", "8-Speed", "10-Speed", "6-Spd", "8-Spd"
+    pattern = r'(\d+)[\s-]*(?:Speed|Spd)'
+    matches = re.findall(pattern, trans_str, re.IGNORECASE)
+    if matches:
+        return int(matches[0])
+    
+    # Handle special cases
+    if '1-Speed' in trans_str or 'Single-Speed' in trans_str:
+        return 1
+    elif 'CVT' in trans_str:  # CVT doesn't have fixed gears
+        return 1
+    elif trans_str in ['Automatic', 'Manual', 'M/T', 'A/T']:
+        return np.nan  # Unknown number of gears
+    
+    return None
+
+# Create new columns for transmission type and number of gears
+df_cars['transmission_type'] = df_cars['transmission'].apply(get_transmission_type)
+df_cars['num_gears'] = df_cars['transmission'].apply(extract_gears)
+
+# Dropping columns that should be transformed and later these columns will encoded
+df_ver2 = df_cars[['brand', 'model', 'model_year', 'milage', 'fuel_type', 'ext_col', 'int_col', 'accident', 'clean_title',
+       'price', 'engine_liters', 'horsepower', 'transmission_type',
+       'num_gears']]
+
+# filling the missing values in the accident column with None reported
+df_ver2['accident'] = df_ver2['accident'].fillna('None reported')
+
+# creating dummy variables for the fuel type and transmission type columns and creating a binary variable for the accident column
+fuel_type_df_dummy = pd.get_dummies(df_ver2['fuel_type'].replace('–','not_provided'), prefix='fuel_type')
+transmission_type = pd.get_dummies(df_ver2['transmission_type'] , prefix='transmission_type')
+accident_binary = pd.DataFrame(np.where(df_ver2['accident']=='None reported', 1, 0)).rename(columns={0:'Accident'})
+
+# creating a binary variable for the clean title column
+df_ver2['clean_title']  = pd.DataFrame(np.where(df_ver2['clean_title']=='Yes', 1, 0)).rename(columns={0:'Clean_title'})
+df_ver2['engine_liters'] = df_ver2['engine_liters'].replace('Electric',0)
+df_ver2['model_clean'] = df_ver2['brand'] +'_' + df_ver2['model'].apply(lambda x: '_'.join(str(x).split(' ')[:2]))
+
+# Concatenating the original dataframe with the new dummy variables and binary variables
+df_ver_3 = df_ver2.copy()
+
+# Concatenating the original dataframe with the new dummy variables and binary variables
+df_ver_3 = pd.concat([df_ver_3, fuel_type_df_dummy, transmission_type,  accident_binary], axis=1)
+
+# Fill missing engine liters using the median of the respective Brand.
+# Logic: BMWs generally have similar engine sizes, distinct from Toyotas.
+df_ver_3['engine_liters'] = df_ver_3['engine_liters'].fillna(
+                                                        df_ver_3.groupby('brand')['engine_liters'].transform('median')
+                                                            )
+
+# Pass 1 (High Precision): Fill HP based on Brand AND Engine Size.
+# Logic: A 2.0L BMW engine usually has a specific HP range (e.g., ~250hp), 
+# which is different from a 2.0L Toyota engine (~170hp).
+
+df_ver_3['horsepower'] = df_ver_3['horsepower'].fillna(
+                    df_ver_3.groupby(['brand', 'engine_liters'])['horsepower'].transform('median')
+                                                        )
+# Pass 2 (Fallback): If Pass 1 failed (e.g., unknown engine size), 
+# fill using the median HP of the Brand only.
+df_ver_3['horsepower'] = df_ver_3['horsepower'].fillna(
+                    df_ver_3.groupby(['brand'])['horsepower'].transform('median')
+                                                        )
+
+# Pass 1 (Most Specific): Look for the exact same Car Model and Transmission.
+# Logic: A "BMW 3-Series Automatic" almost always has the same gear count.
+df_ver_3['num_gears']= df_ver_3['num_gears'].fillna(
+                    df_ver_3.groupby(['brand', 'model_clean', 'transmission_type'])['num_gears'].transform('median')
+                            )
+# Pass 2 (Generalization): If the Model is rare/unknown, look at the Brand + Transmission.
+# Logic: "All BMW Automatics" likely share similar gear counts (e.g., 8 gears).
+df_ver_3['num_gears']= df_ver_3['num_gears'].fillna(
+                    df_ver_3.groupby(['brand', 'transmission_type'])['num_gears'].transform('median')
+                            )
+# Pass 3 (Final Safety Net): Fill remaining using Transmission Type only.
+# Logic: If Brand is unknown, a generic "Automatic" usually implies ~6 gears.
+df_ver_3['num_gears']= df_ver_3['num_gears'].fillna(
+                    df_ver_3.groupby(['brand'])['num_gears'].transform('median')
+                            )
+
+# After all passes, if there are still missing values (e.g., very rare brands), we can fill with the overall median or a placeholder value.
+df_ver_3 = df_ver_3.drop(['accident', 'fuel_type', 'clean_title', 'model', 'transmission_type'] , axis=1)
+
+# Drop any remaining rows with missing values (if any)
+df_ver_3  = df_ver_3.dropna()
+
+print(df_ver_3.isnull().sum())
