@@ -1,9 +1,5 @@
 import pandas as pd
 import numpy as np
-
-import matplotlib.pyplot as plt 
-import seaborn as sns
-import matplotlib.ticker as ticker
 import regex as re
 
 # Load the dataset
@@ -178,4 +174,12 @@ df_ver_3 = df_ver_3.drop(['accident', 'fuel_type', 'clean_title', 'model', 'tran
 # Drop any remaining rows with missing values (if any)
 df_ver_3  = df_ver_3.dropna()
 
-print(df_ver_3.isnull().sum())
+# Calculate car age
+current_year = 2024
+df_ver_3['car_age'] = current_year - df_ver_3['model_year']
+
+# Calculate annual mileage
+df_ver_3['annual_mileage'] = round(df_ver_3['milage'] / df_ver_3['car_age'].replace(0, 1), 2)
+
+# Age-miles ratio (how hard the car was used)
+df_ver_3['miles_per_year']  = df_ver_3['milage'] / (df_ver_3['car_age'] + 1)
