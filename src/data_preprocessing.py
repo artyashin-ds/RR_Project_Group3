@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import regex as re
+from sklearn.preprocessing import MinMaxScaler
 
 # Load the dataset
 df_cars = pd.read_csv(f'../data/used_cars.csv')
@@ -183,3 +184,23 @@ df_ver_3['annual_mileage'] = round(df_ver_3['milage'] / df_ver_3['car_age'].repl
 
 # Age-miles ratio (how hard the car was used)
 df_ver_3['miles_per_year']  = df_ver_3['milage'] / (df_ver_3['car_age'] + 1)
+
+# scale numerical features (like Mileage)
+# 1. Price (Target): Log Transform
+# We do this to predict percentages, not raw dollars
+df_ver_3['price_log'] = np.log1p(df_ver_3['price']) 
+
+# 2. Mileage (Feature): Log Transform AND Scale
+# Log first to fix the distribution (diminishing impact)
+df_ver_3['milage_log'] = np.log1p(df_ver_3['milage']) 
+# Then Scale to fix the "high numbers"
+scaler = MinMaxScaler()
+df_ver_3['milage_scaled'] = scaler.fit_transform(df_ver_3[['milage_log']])
+df_ver_3['miles_per_year_scaled'] = scaler.fit_transform(df_ver_3[['miles_per_year']])
+df_ver_3['annual_mileage_scaled'] = scaler.fit_transform(df_ver_3[['annual_mileage']])
+
+# 3. Year (Feature): Scale
+df_ver_3['car_age_scaled'] = scaler.fit_transform(df_ver_3[['car_age']])
+
+# Drop original columns that have been transformed
+df_ver_3 = df_ver_3.drop(columns=['price', 'milage', 'milage_log', 'miles_per_year', 'annual_mileage', 'car_age', 'model_year'])
