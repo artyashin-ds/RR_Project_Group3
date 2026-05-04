@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import regex as re
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 
 # Load the dataset
 df_cars = pd.read_csv(f'../data/used_cars.csv')
@@ -204,3 +205,55 @@ df_ver_3['car_age_scaled'] = scaler.fit_transform(df_ver_3[['car_age']])
 
 # Drop original columns that have been transformed
 df_ver_3 = df_ver_3.drop(columns=['price', 'milage', 'milage_log', 'miles_per_year', 'annual_mileage', 'car_age', 'model_year'])
+
+
+# Prepare the final dataset for modeling by separating features and target variable, and then splitting into training and testing sets.
+X = df_ver_3.drop('price_log', axis=1)
+y = df_ver_3['price_log']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=908)
+# X_train.shape, X_test.shape
+
+def target_encode_train_test(X_train, y_train, X_test, col, m=10):
+
+    # 1. Calculate Global Mean (or Median) on Train
+    global_val = y_train.median()
+    
+    # 2. Aggregate data on Train
+    temp_df = X_train.copy()
+    temp_df['target'] = y_train
+    agg = temp_df.groupby(col)['target'].agg(['count', 'median'])
+    
+    # 3. Calculate Smoothed Values
+    counts = agg['count']
+    means = agg['median']
+    smooth_scores = (counts * means + m * global_val) / (counts + m)
+    
+    # 4. Create the Dictionary (Map)
+    map_dict = smooth_scores.to_dict()
+    
+    # --- TRANSFORMATION PHASE ---
+    # 5. Map to Train
+    X_train_encoded = X_train[col].map(map_dict)
+    
+    # 6. Map to Test
+    # CRITICAL: If a category in Test wasn't in Train, fill with Global Value
+    X_test_encoded = X_test[col].map(map_dict).fillna(global_val)
+    
+    return X_train_encoded, X_test_encoded
+
+# Target encode the specified columns in both training and testing sets
+cols_to_target_encode = ['brand', 'model_clean', 'ext_col', 'int_col']
+
+for col in cols_to_target_encode:
+    X_train[col], X_test[col] = target_encode_train_test(
+        X_train, y_train, X_test, col, m=10
+    )
+
+print(X_train.shape, X_test.shape)
+
+# Export X_train, X_test, y_train, y_test to CSV files for later use in modeling (replace if exists)
+X_train.to_csv(f'../data/clean/X_train.csv', index=False)
+X_test.to_csv(f'../data/clean/X_test.csv', index=False)
+y_train.to_csv(f'../data/clean/y_train.csv', index=False)
+y_test.to_csv(f'../data/clean/y_test.csv', index=False)
